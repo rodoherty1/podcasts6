@@ -1,0 +1,29 @@
+{
+	"name": "podcasts6",
+	"description": "YouTube to Podcasts",
+	"author": "Rob O'Doherty <rodoherty1@gmail.com>",
+	"devDependencies": {
+		"jasmine-node": "1.x.x",
+		"grunt": "~0.x.x",
+		"grunt-contrib-nodeunit": "~0.x.x",
+		"grunt-contrib-copy": "0.x.x",
+		"grunt-contrib-clean": "0.x.x",
+		"grunt-contrib-jshint": "0.x.x",
+		"grunt-jasmine-node": "0.x.x"
+	},
+	"dependencies": {
+		"async" : "0.2.x",
+		"underscore" : "1.x.x",
+		"jquery" : "1.x.x",
+		"optimist" : "0.x.x",
+		"moment" : "2.x.x",
+		"googleapis" : "0.4.x",
+		"libxmljs" : "0.8.x"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/rodoherty1/podcasts6"
+	},
+	"readmeFilename": "README.md"
+
+}

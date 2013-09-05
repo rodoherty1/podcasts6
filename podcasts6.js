@@ -7,10 +7,13 @@ var spawn = require('child_process').spawn,
 	libxmljs = require('libxmljs'),
 	pd = require('pretty-data').pd,
 	moment = require('moment'),
+	$ = require('jquery'),
 	argv = require('optimist')
     .usage('Downloads a YouTube video and rips it to MP3.\nUsage: $0 -c [channel] -v [title]')
+    .alias('f', 'config')
     .alias('c', 'channel')
     .alias('v', 'video')
+    .describe('f', 'Config File')
     .describe('c', 'YouTube Channel Name')
     .describe('v', 'YouTube Video Title')
     .argv;	
@@ -29,17 +32,15 @@ var AllApp = function() {
 	var videoFilename, mp3Filename;
 	var xmlDoc;
 	var conn = {};
-
-	var hostname = 'ftp.somwhere.com';
-	var localfile = '/home/rob/workspace/rss.xml';
-	var localRssfile = './rss.xml';
-	var remoteRssFile = 'public_html/rss.xml';
-	var remoteMp3Filename;
-	var username = 'username';
-	var password = 'password';
-	var gapiKey = 'your gapi key';
-	var urlOfPodcasts = 'http://www.somewhere.com/podcasts/';
 	
+	/*
+	 * Configuration file describing RSS details
+	 */
+	var config = {};
+
+    var remoteMp3Filename;
+
+
     /**
      *  terminator === the termination handler
      *  Terminate server on receipt of the specified signal.
@@ -88,7 +89,7 @@ var AllApp = function() {
 			    .execute(function(err, client) {
 				
 				findYouTubeChannelReq = client.youtube.search.list({
-					key: gapiKey,
+					key: config.podcasts.gapiKey,
 					part: 'id',
 					maxResults: 1,
 					q : argv.c,
@@ -98,7 +99,7 @@ var AllApp = function() {
 				findYouTubeChannelReq.execute(function (err, response) {
 					
 					findYouTubeVideoReq = client.youtube.search.list({
-						key: gapiKey,
+						key: config.gapiKey,
 						part: 'snippet',
 						maxResults: 1,
 						channelId: response.items[0].id.channelId,
@@ -135,7 +136,7 @@ var AllApp = function() {
 			    .execute(function(err, client) {
 				
 				findYouTubeVideoReq = client.youtube.search.list({
-					key: gapiKey,
+					key: config.podcasts.gapiKey,
 					part: 'snippet',
 					maxResults: 1,
 					q: argv.v,
@@ -162,6 +163,7 @@ var AllApp = function() {
 	this.convertToMp3 = function(callback) {
 		if (argv.c || argv.v) {
 			that.mp3Filename = that.videoFilename.replace(/\.[^\.]+$/, '.mp3');
+			that.remoteMp3Filename = that.mp3Filename.replace(/ /g,"_");
 			
 			if (!fs.existsSync(that.mp3Filename)) {
 				console.log ('Ripping "' + that.videoFilename + '" to "' + that.mp3Filename + '"');
@@ -201,7 +203,7 @@ var AllApp = function() {
 		if (argv.c || argv.v) {
 			var replacement = ' ';
 
-			that.videoFilename = trim(that.videoTitle.replace(/[|&;:$%@"<>()+,?\/]/g, replacement)) + '.webm';
+			that.videoFilename = trim(that.videoTitle.replace(/[|&;:$%@#"<>()+,?\/]/g, replacement)) + '.webm';
 			
 			if (!fs.existsSync(that.videoFilename)) {
 				console.log ('Downloading "' + that.videoTitle + '" to "' + that.videoFilename + '"');
@@ -238,7 +240,7 @@ var AllApp = function() {
 	 *
 	 */
 	this.connect = function(callback) {
-	    console.log('Connecting to ' + hostname);
+	    console.log('Connecting to ' + config.podcasts.hostname);
 		that.conn = new FTPClient();
 
 		that.conn.on('ready', function() {
@@ -265,9 +267,9 @@ var AllApp = function() {
 		});
 			
 		that.conn.connect({
-			host: hostname,
-			user: username,
-			password: password
+			host: config.podcasts.hostname,
+			user: config.podcasts.username,
+			password: config.podcasts.password
 			});
 	};	
 	
@@ -275,7 +277,7 @@ var AllApp = function() {
 	 *
 	 */
 	this.close = function(callback) {
-	    console.log('Closing connection to ' + hostname);
+	    console.log('Closing connection to ' + config.podcasts.hostname);
 	    that.conn.end();
 	    that.conn.destroy();
 		callback(null, 'close');
@@ -287,19 +289,19 @@ var AllApp = function() {
 	 *
 	 */
 	this.downloadToLocalRss = function(callback) {
-	    console.log('Downloading ' + remoteRssFile);
+	    console.log('Downloading ' + config.podcasts.remoteRssFile);
 	    
-		that.conn.get(remoteRssFile, function(err, stream) {
+		that.conn.get(config.podcasts.remoteRssFile, function(err, stream) {
 			if (err) {
 				throw err;
 			}
 
 			stream.once('close', function() {
-				console.log ('Downloaded ' + remoteRssFile + ' to ' + localRssfile);
+				console.log ('Downloaded ' + config.podcasts.remoteRssFile + ' to ' + config.podcasts.localRssfile);
 				callback(null, 'downloadToLocalRss');
 			});
 			
-			stream.pipe(fs.createWriteStream(localRssfile));
+			stream.pipe(fs.createWriteStream(config.podcasts.localRssfile));
 		});
 	};
 	
@@ -334,8 +336,7 @@ var AllApp = function() {
 			
 			var newItemElem = libxmljs.Element(channel.doc(), 'item');
 			
-			that.remoteMp3Filename = that.mp3Filename.replace(/ /g,"_");
-			var url = urlOfPodcasts + that.remoteMp3Filename; 
+			var url = config.podcasts.urlOfPodcasts + that.remoteMp3Filename; 
 			
 			var titleElem = newItemElem.node('title', that.videoTitle);
 			var linkElem = newItemElem.node('link', 'https://www.youtube.com/watch?v=' + that.videoId);
@@ -367,8 +368,8 @@ var AllApp = function() {
 	 *
 	 */
 	this.uploadRss = function(callback) {
-	    console.log('Uploading ' + localRssfile);
-		that.conn.put(fs.createReadStream(localRssfile), remoteRssFile, function (err) {
+	    console.log('Uploading ' + config.podcasts.localRssfile);
+		that.conn.put(fs.createReadStream(config.podcasts.localRssfile), config.podcasts.remoteRssFile, function (err) {
 			if (err) {
 				throw err;
 			}
@@ -390,8 +391,26 @@ var AllApp = function() {
 	};
 	
 	
+	this.readConfig = function(callback) {
+		var stream = fs.createReadStream(argv.config);
+
+		var lines = '';
+
+		stream.on('data', function (buf) {
+		    lines += buf;
+		});
+
+		stream.on('end', function () {
+			config = $.parseJSON(lines);
+			callback(null, 'readConfig');
+		});	
+	};
+	
+	
+	
 	this.start = function() {
 		async.series([
+			this.readConfig,
 			this.searchForYouTubeChannel,
 			this.searchForYouTubeVideo,
 		    this.downloadYouTube,

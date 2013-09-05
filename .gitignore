@@ -2,3 +2,10 @@
 *.old
 bower_components
 node_modules
+*.mp3
+*.webm
+ayesha.js
+ayesha.xml
+config.json
+rss.xml
+
